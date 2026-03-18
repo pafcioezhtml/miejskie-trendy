@@ -39,10 +39,11 @@ def _strip_markdown_fences(text: str) -> str:
     return text.strip()
 
 
-async def _collect_articles() -> list[RawItem]:
+async def _collect_articles(lookback_hours: int = 24) -> list[RawItem]:
     """Run all collectors and normalize."""
+    lookback_days = max(1, lookback_hours // 24)
     collectors = [
-        GoogleNewsCollector(),
+        GoogleNewsCollector(lookback_days=lookback_days),
         TVNWarszawaCollector(),
         UMWarszawaCollector(),
         RedditCollector(),
@@ -63,7 +64,7 @@ async def _collect_articles() -> list[RawItem]:
         logging.info("Collector %s: %d items", collector.name, len(result))
         all_items.extend(result)
 
-    return normalize(all_items)
+    return normalize(all_items, lookback_hours=lookback_hours)
 
 
 def _match_by_url_overlap(
@@ -90,18 +91,26 @@ def _match_by_url_overlap(
     return matches
 
 
+INITIAL_LOOKBACK_HOURS = 72  # 3 days on first run
+
+
 async def update() -> int:
     """Full update cycle: collect → match → merge via Claude → save to DB.
 
     Returns number of active events after update.
     """
-    items = await _collect_articles()
+    existing = get_active_events_summary()
+    is_first_run = len(existing) == 0
+
+    lookback = INITIAL_LOOKBACK_HOURS if is_first_run else 24
+    if is_first_run:
+        logger.info("First run detected — collecting %d hours of articles", lookback)
+
+    items = await _collect_articles(lookback_hours=lookback)
 
     if not items:
         logger.warning("No articles collected — skipping update.")
         return 0
-
-    existing = get_active_events_summary()
 
     # Build normalized URL set for matching
     article_urls_normalized = set()

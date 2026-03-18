@@ -10,19 +10,23 @@ from miejskie_trendy.models import RawItem
 
 logger = logging.getLogger(__name__)
 
-RSS_URL = (
+RSS_URL_TEMPLATE = (
     "https://news.google.com/rss/search"
-    "?q=Warszawa+when:1d&hl=pl&gl=PL&ceid=PL:pl"
+    "?q=Warszawa+when:{days}d&hl=pl&gl=PL&ceid=PL:pl"
 )
 
 
 class GoogleNewsCollector:
     name = "google_news"
 
+    def __init__(self, lookback_days: int = 1) -> None:
+        self.lookback_days = lookback_days
+
     async def collect(self) -> list[RawItem]:
+        url = RSS_URL_TEMPLATE.format(days=self.lookback_days)
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                RSS_URL,
+                url,
                 headers={"User-Agent": "MiejskieTrendy/0.1"},
             ) as resp:
                 text = await resp.text()
