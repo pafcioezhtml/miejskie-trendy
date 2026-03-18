@@ -13,13 +13,14 @@ function formatTime(iso) {
   })
 }
 
-export function EventCard({ event }) {
+export function EventCard({ event, isUpdated }) {
   return (
-    <article className="event-card">
+    <article className={`event-card${isUpdated ? ' event-card--updated' : ''}`}>
       <div className="event-header">
         <div className="event-meta">
           <CategoryBadge category={event.category} />
           <RelevanceIndicator relevance={event.relevance} />
+          {isUpdated && <span className="update-badge">Nowe</span>}
         </div>
         {event.first_seen_at && (
           <span className="event-time">

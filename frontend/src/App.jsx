@@ -3,7 +3,7 @@ import { EventList } from './components/EventList'
 import './App.css'
 
 function App() {
-  const { events, fetchedAt, loading, error, refetch } = useEvents()
+  const { events, fetchedAt, loading, error, updatedIds } = useEvents()
 
   const formatTime = (iso) => {
     if (!iso) return ''
@@ -24,20 +24,11 @@ function App() {
           <h1>Miejskie Trendy</h1>
           <p className="subtitle">Bieżące wydarzenia w Warszawie</p>
         </div>
-        <div className="header-actions">
-          {fetchedAt && (
-            <span className="fetched-at">
-              Zaktualizowano: {formatTime(fetchedAt)}
-            </span>
-          )}
-          <button
-            className="refresh-btn"
-            onClick={refetch}
-            disabled={loading}
-          >
-            {loading ? 'Ładowanie...' : 'Odśwież'}
-          </button>
-        </div>
+        {fetchedAt && (
+          <span className="fetched-at">
+            Zaktualizowano: {formatTime(fetchedAt)}
+          </span>
+        )}
       </header>
 
       <main className="app-main">
@@ -50,11 +41,10 @@ function App() {
         {loading && events.length === 0 ? (
           <div className="loading">
             <div className="spinner" />
-            <p>Zbieranie danych ze źródeł i analiza wydarzeń...</p>
-            <p className="loading-hint">Pierwsze ładowanie może potrwać do 30 sekund</p>
+            <p>Ładowanie wydarzeń...</p>
           </div>
         ) : (
-          <EventList events={events} />
+          <EventList events={events} updatedIds={updatedIds} />
         )}
       </main>
     </div>
