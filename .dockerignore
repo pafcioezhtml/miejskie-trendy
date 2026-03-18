@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+*.egg-info
+.git
+frontend/node_modules
+frontend/dist
+stderr.log
+.claude

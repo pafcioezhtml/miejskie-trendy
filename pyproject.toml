@@ -1,0 +1,26 @@
+[project]
+name = "miejskie-trendy"
+version = "0.1.0"
+description = "Kolektor wydarzeń miejskich w Warszawie"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp",
+    "feedparser",
+    "beautifulsoup4",
+    "lxml",
+    "anthropic",
+    "python-dotenv",
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[project.scripts]
+miejskie-trendy = "miejskie_trendy.main:main"
+miejskie-trendy-server = "miejskie_trendy.api:start"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

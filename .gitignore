@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.env
+frontend/node_modules/
+frontend/dist/
+stderr.log

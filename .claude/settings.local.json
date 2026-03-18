@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:news.google.com)",
+      "WebFetch(domain:tvn24.pl)",
+      "WebFetch(domain:um.warszawa.pl)",
+      "WebFetch(domain:warszawa19115.pl)",
+      "WebFetch(domain:tvnwarszawa.tvn24.pl)",
+      "Bash(pip3 show:*)",
+      "WebSearch",
+      "WebFetch(domain:doc.wykop.pl)",
+      "WebFetch(domain:wykop.pl)",
+      "WebFetch(domain:dev.wykop.pl)",
+      "WebFetch(domain:warszawa.wyborcza.pl)",
+      "WebFetch(domain:wawa.info)",
+      "WebFetch(domain:go.waw.pl)",
+      "WebFetch(domain:warszawa.naszemiasto.pl)",
+      "WebFetch(domain:www.radiozet.pl)",
+      "WebFetch(domain:wiadomosci.gazeta.pl)",
+      "WebFetch(domain:www.se.pl)",
+      "WebFetch(domain:stat.gov.pl)",
+      "WebFetch(domain:warszawa.stat.gov.pl)",
+      "WebFetch(domain:warsaw.in.gov)",
+      "WebFetch(domain:warsawinsider.pl)",
+      "WebFetch(domain:zw.com.pl)",
+      "WebFetch(domain:notesfrompoland.com)",
+      "WebFetch(domain:zyciewarszawy.pl)",
+      "WebFetch(domain:www.wyborcza.pl)",
+      "WebFetch(domain:rss.feedspot.com)",
+      "Bash(npm create:*)",
+      "Bash(npm run:*)",
+      "Bash(python -c \"from miejskie_trendy.api import app; print\\(''FastAPI app loads OK''\\)\")",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s -X POST http://localhost:8000/api/events/refresh)",
+      "Bash(lsof -ti:8000)",
+      "Bash(curl -s -o /dev/null -w \"API: %{http_code}\\\\n\" http://localhost:8000/api/events)"
+    ]
+  }
+}
