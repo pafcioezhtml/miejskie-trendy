@@ -1,17 +1,8 @@
 import { CategoryBadge } from './CategoryBadge'
 import { RelevanceIndicator } from './RelevanceIndicator'
 import { SourceLinks } from './SourceLinks'
-
-function formatTime(iso) {
-  if (!iso) return null
-  const d = new Date(iso)
-  return d.toLocaleString('pl-PL', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { TimeRange } from './TimeRange'
+import { ActivityChart } from './ActivityChart'
 
 export function EventCard({ event, isUpdated }) {
   return (
@@ -22,11 +13,7 @@ export function EventCard({ event, isUpdated }) {
           <RelevanceIndicator relevance={event.relevance} />
           {isUpdated && <span className="update-badge">Nowe</span>}
         </div>
-        {event.first_seen_at && (
-          <span className="event-time">
-            {formatTime(event.first_seen_at)}
-          </span>
-        )}
+        <TimeRange sources={event.sources} />
       </div>
       <h2 className="event-name">{event.name}</h2>
       {event.location && (
@@ -35,6 +22,7 @@ export function EventCard({ event, isUpdated }) {
         </p>
       )}
       <p className="event-description">{event.description}</p>
+      <ActivityChart sources={event.sources} />
       <SourceLinks sources={event.sources} />
     </article>
   )
