@@ -26,6 +26,11 @@ COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 # Railway sets PORT env var
 ENV PORT=8000
 ENV FRONTEND_DIST=/app/frontend/dist
+ENV DATABASE_PATH=/app/data/events.db
+ENV UPDATE_INTERVAL_MINUTES=60
 EXPOSE ${PORT}
+
+# Create data directory for SQLite
+RUN mkdir -p /app/data
 
 CMD ["python", "-m", "miejskie_trendy.api"]

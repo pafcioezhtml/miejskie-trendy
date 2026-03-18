@@ -2,6 +2,17 @@ import { CategoryBadge } from './CategoryBadge'
 import { RelevanceIndicator } from './RelevanceIndicator'
 import { SourceLinks } from './SourceLinks'
 
+function formatTime(iso) {
+  if (!iso) return null
+  const d = new Date(iso)
+  return d.toLocaleString('pl-PL', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export function EventCard({ event }) {
   return (
     <article className="event-card">
@@ -10,6 +21,11 @@ export function EventCard({ event }) {
           <CategoryBadge category={event.category} />
           <RelevanceIndicator relevance={event.relevance} />
         </div>
+        {event.first_seen_at && (
+          <span className="event-time">
+            {formatTime(event.first_seen_at)}
+          </span>
+        )}
       </div>
       <h2 className="event-name">{event.name}</h2>
       {event.location && (
