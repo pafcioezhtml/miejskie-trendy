@@ -36,7 +36,8 @@
       "Bash(curl -s -o /dev/null -w \"API: %{http_code}\\\\n\" http://localhost:8000/api/events)",
       "Bash(railway status:*)",
       "Bash(railway up:*)",
-      "Bash(railway logs:*)"
+      "Bash(railway logs:*)",
+      "Bash(curl -s -X POST https://miejskie-trendy-production.up.railway.app/api/events/rebuild)"
     ]
   }
 }
