@@ -2,7 +2,6 @@ import { CategoryBadge } from './CategoryBadge'
 import { RelevanceIndicator } from './RelevanceIndicator'
 import { SourceLinks } from './SourceLinks'
 import { TimeRange } from './TimeRange'
-import { ActivityChart } from './ActivityChart'
 
 export function EventCard({ event, isUpdated }) {
   return (
@@ -22,7 +21,6 @@ export function EventCard({ event, isUpdated }) {
         </p>
       )}
       <p className="event-description">{event.description}</p>
-      <ActivityChart sources={event.sources} />
       <SourceLinks sources={event.sources} />
     </article>
   )

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ActivityChart } from './ActivityChart'
 
 function formatDate(iso) {
   if (!iso) return null
@@ -18,12 +19,15 @@ export function SourceLinks({ sources }) {
 
   return (
     <div className="source-links">
-      <button
-        className="source-toggle"
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? 'Ukryj' : 'Pokaż'} {sources.length} {sources.length === 1 ? 'źródło' : sources.length < 5 ? 'źródła' : 'źródeł'}
-      </button>
+      <div className="source-links-header">
+        <button
+          className="source-toggle"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Ukryj' : 'Pokaż'} {sources.length} {sources.length === 1 ? 'źródło' : sources.length < 5 ? 'źródła' : 'źródeł'}
+        </button>
+        <ActivityChart sources={sources} />
+      </div>
       {expanded && (
         <ul className="source-list">
           {sources.map((source, i) => (
