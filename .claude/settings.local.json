@@ -35,7 +35,8 @@
       "Bash(lsof -ti:8000)",
       "Bash(curl -s -o /dev/null -w \"API: %{http_code}\\\\n\" http://localhost:8000/api/events)",
       "Bash(railway status:*)",
-      "Bash(railway up:*)"
+      "Bash(railway up:*)",
+      "Bash(railway logs:*)"
     ]
   }
 }

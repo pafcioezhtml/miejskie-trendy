@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from miejskie_trendy.db import get_active_events, get_last_update_time, init_db
+from miejskie_trendy.db import get_active_events, get_last_update_time, init_db, reset_db
 from miejskie_trendy.scheduler import run_scheduler
 
 logger = logging.getLogger(__name__)
@@ -106,6 +106,28 @@ async def refresh_events():
         return JSONResponse(
             status_code=500,
             content={"error": "Nie udało się odświeżyć wydarzeń", "detail": str(e)},
+        )
+
+
+@app.post("/api/events/rebuild")
+async def rebuild_events():
+    """Clear DB and do a fresh 3-day collection."""
+    from miejskie_trendy.updater import update
+
+    try:
+        reset_db()
+        count = await update()
+        events = get_active_events()
+        last_update = get_last_update_time()
+        return {
+            "events": events,
+            "fetched_at": last_update,
+        }
+    except Exception as e:
+        logger.error("Failed to rebuild events: %s", e, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Nie udało się przebudować bazy", "detail": str(e)},
         )
 
 

@@ -200,6 +200,18 @@ def upsert_events(events: list[dict], now: str | None = None) -> None:
         conn.close()
 
 
+def reset_db() -> None:
+    """Drop all data — triggers fresh 3-day collection on next update."""
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM sources")
+        conn.execute("DELETE FROM events")
+        conn.commit()
+        logger.info("Database reset — all events cleared")
+    finally:
+        conn.close()
+
+
 def get_last_update_time() -> str | None:
     conn = get_connection()
     try:
