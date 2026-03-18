@@ -1,5 +1,16 @@
 import { useState } from 'react'
 
+function formatDate(iso) {
+  if (!iso) return null
+  const d = new Date(iso)
+  return d.toLocaleString('pl-PL', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export function SourceLinks({ sources }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -20,6 +31,9 @@ export function SourceLinks({ sources }) {
               <a href={source.url} target="_blank" rel="noopener noreferrer">
                 {source.title}
               </a>
+              {source.published_at && (
+                <span className="source-date">{formatDate(source.published_at)}</span>
+              )}
             </li>
           ))}
         </ul>

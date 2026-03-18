@@ -58,7 +58,11 @@ async def group_events(
         sources = []
         for idx in source_ids:
             if 0 <= idx < len(items):
-                sources.append(Source(title=items[idx].title, url=items[idx].url))
+                sources.append(Source(
+                    title=items[idx].title,
+                    url=items[idx].url,
+                    published_at=items[idx].published_at,
+                ))
 
         events.append(
             Event(

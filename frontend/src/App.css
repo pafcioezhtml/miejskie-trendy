@@ -212,6 +212,13 @@ body {
   text-decoration: underline;
 }
 
+.source-date {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+
 /* Loading */
 .loading {
   text-align: center;

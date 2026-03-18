@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -24,6 +24,7 @@ class RawItem:
 class Source:
     title: str
     url: str
+    published_at: datetime | None = None
 
 
 @dataclass
@@ -46,5 +47,20 @@ class Event:
             "location": self.location,
             "relevance": self.relevance,
             "confidence": self.confidence,
-            "sources": [{"title": s.title, "url": s.url} for s in self.sources],
+            "sources": [
+                {
+                    "title": s.title,
+                    "url": s.url,
+                    "published_at": s.published_at.isoformat() if s.published_at else None,
+                }
+                for s in sorted(
+                    self.sources,
+                    key=lambda s: (
+                        s.published_at.replace(tzinfo=timezone.utc)
+                        if s.published_at and s.published_at.tzinfo is None
+                        else s.published_at or datetime.min.replace(tzinfo=timezone.utc)
+                    ),
+                    reverse=True,
+                )
+            ],
         }

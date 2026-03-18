@@ -33,7 +33,9 @@
       "Bash(curl -s http://localhost:8000/)",
       "Bash(curl -s -X POST http://localhost:8000/api/events/refresh)",
       "Bash(lsof -ti:8000)",
-      "Bash(curl -s -o /dev/null -w \"API: %{http_code}\\\\n\" http://localhost:8000/api/events)"
+      "Bash(curl -s -o /dev/null -w \"API: %{http_code}\\\\n\" http://localhost:8000/api/events)",
+      "Bash(railway status:*)",
+      "Bash(railway up:*)"
     ]
   }
 }

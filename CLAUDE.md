@@ -79,8 +79,33 @@ All other data sources (Google News RSS, TVN Warszawa RSS, um.warszawa.pl, Reddi
 
 ## Deployment (Railway)
 
+- **Live URL:** https://miejskie-trendy-production.up.railway.app
+- **GitHub:** https://github.com/pafcioezhtml/miejskie-trendy
+- **Railway project:** `brilliant-peace`, service `miejskie-trendy`
 - **Dockerfile:** Multi-stage build (Node for frontend, Python for backend). Railway auto-detects it.
-- **Env vars in Railway dashboard:** `ANTHROPIC_API_KEY` (required), `WYKOP_KEY`, `WYKOP_SECRET` (optional). Railway sets `PORT` automatically.
 - **`FRONTEND_DIST`:** Set in Dockerfile to `/app/frontend/dist`. Override if frontend dist is elsewhere.
 - **Frontend mount:** Happens at FastAPI startup event, not import time — ensures Docker layer ordering works.
-- **Docker build tested:** `docker build -t miejskie-trendy . && docker run -p 8000:8000 -e ANTHROPIC_API_KEY=... miejskie-trendy`
+- **Railway sets `PORT` automatically** (currently 8080). `api.py` reads it from env.
+
+### Railway CLI commands
+
+```bash
+# Deploy
+railway up -s miejskie-trendy --detach
+
+# Set env vars
+railway variables set KEY=value -s miejskie-trendy
+
+# View logs
+railway logs -s miejskie-trendy
+
+# Generate/view public domain
+railway domain -s miejskie-trendy
+```
+
+### Local Docker test
+
+```bash
+docker build -t miejskie-trendy .
+docker run -p 8000:8000 -e ANTHROPIC_API_KEY=... miejskie-trendy
+```
