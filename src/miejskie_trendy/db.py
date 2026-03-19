@@ -56,6 +56,11 @@ def init_db() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_events_active ON events(is_active);
             CREATE INDEX IF NOT EXISTS idx_sources_event ON sources(event_id);
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
         """)
         conn.commit()
         logger.info("Database initialized at %s", _get_db_path())
@@ -219,5 +224,57 @@ def get_last_update_time() -> str | None:
             "SELECT MAX(last_updated_at) as t FROM events WHERE is_active = 1"
         ).fetchone()
         return row["t"] if row else None
+    finally:
+        conn.close()
+
+
+# --- Settings ---
+
+_SETTINGS_DEFAULTS = {
+    "update_interval_minutes": "60",
+    "update_enabled": "true",
+    "anthropic_api_key": "",
+    "wykop_key": "",
+    "wykop_secret": "",
+}
+
+
+def get_settings() -> dict[str, str]:
+    """Get all settings, merged with defaults."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT key, value FROM settings").fetchall()
+        stored = {r["key"]: r["value"] for r in rows}
+        result = {**_SETTINGS_DEFAULTS, **stored}
+        return result
+    finally:
+        conn.close()
+
+
+def get_setting(key: str) -> str:
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = ?", (key,)
+        ).fetchone()
+        if row:
+            return row["value"]
+        return _SETTINGS_DEFAULTS.get(key, "")
+    finally:
+        conn.close()
+
+
+def save_settings(settings: dict[str, str]) -> None:
+    conn = get_connection()
+    try:
+        for key, value in settings.items():
+            if key in _SETTINGS_DEFAULTS:
+                conn.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, value),
+                )
+        conn.commit()
+        logger.info("Settings saved: %s", list(settings.keys()))
     finally:
         conn.close()

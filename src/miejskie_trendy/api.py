@@ -13,8 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from miejskie_trendy.db import get_active_events, get_last_update_time, init_db, reset_db
-from miejskie_trendy.scheduler import run_scheduler
+from miejskie_trendy.db import (
+    get_active_events, get_last_update_time, get_settings, init_db,
+    reset_db, save_settings,
+)
+from miejskie_trendy.scheduler import notify_settings_changed, run_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,9 @@ async def lifespan(app: FastAPI):
 
     # Mount frontend
     _mount_frontend(app)
+
+    # Apply API keys from settings to env (so SDKs pick them up)
+    _apply_key_settings()
 
     # Start background scheduler
     _scheduler_task = asyncio.create_task(run_scheduler())
@@ -54,6 +60,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _apply_key_settings():
+    """Override env vars with API keys stored in DB settings (if non-empty)."""
+    settings = get_settings()
+    key_map = {
+        "anthropic_api_key": "ANTHROPIC_API_KEY",
+        "wykop_key": "WYKOP_KEY",
+        "wykop_secret": "WYKOP_SECRET",
+    }
+    for setting_key, env_var in key_map.items():
+        val = settings.get(setting_key, "")
+        if val:
+            os.environ[env_var] = val
 
 
 def _mount_frontend(app: FastAPI):
@@ -129,6 +149,32 @@ async def rebuild_events():
             status_code=500,
             content={"error": "Nie udało się przebudować bazy", "detail": str(e)},
         )
+
+
+@app.get("/api/settings")
+async def api_get_settings():
+    settings = get_settings()
+    # Mask API keys for display (show last 4 chars only)
+    for key in ("anthropic_api_key", "wykop_key", "wykop_secret"):
+        val = settings.get(key, "")
+        if val and len(val) > 4:
+            settings[key] = "***" + val[-4:]
+    return settings
+
+
+@app.put("/api/settings")
+async def api_save_settings(body: dict):
+    # Don't save masked values
+    to_save = {}
+    for key, value in body.items():
+        if value and not value.startswith("***"):
+            to_save[key] = value
+        elif not value:
+            to_save[key] = ""
+    save_settings(to_save)
+    _apply_key_settings()
+    notify_settings_changed()
+    return {"ok": True}
 
 
 def start():

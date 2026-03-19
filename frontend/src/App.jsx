@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useEvents } from './hooks/useEvents'
 import { EventList } from './components/EventList'
+import { SettingsDialog } from './components/SettingsDialog'
 import './App.css'
 
 function App() {
   const { events, fetchedAt, loading, error, updatedIds } = useEvents()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const formatTime = (iso) => {
     if (!iso) return ''
@@ -24,11 +27,20 @@ function App() {
           <h1>Miejskie Trendy</h1>
           <p className="subtitle">Bieżące wydarzenia w Warszawie</p>
         </div>
-        {fetchedAt && (
-          <span className="fetched-at">
-            Zaktualizowano: {formatTime(fetchedAt)}
-          </span>
-        )}
+        <div className="header-actions">
+          {fetchedAt && (
+            <span className="fetched-at">
+              Zaktualizowano: {formatTime(fetchedAt)}
+            </span>
+          )}
+          <button
+            className="settings-btn"
+            onClick={() => setSettingsOpen(true)}
+            title="Ustawienia"
+          >
+            &#x2699;
+          </button>
+        </div>
       </header>
 
       <main className="app-main">
@@ -47,6 +59,11 @@ function App() {
           <EventList events={events} updatedIds={updatedIds} />
         )}
       </main>
+
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   )
 }
