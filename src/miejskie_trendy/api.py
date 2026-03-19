@@ -14,8 +14,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from miejskie_trendy.db import (
-    get_active_events, get_last_update_time, get_settings, init_db,
-    reset_db, save_settings,
+    get_active_events, get_last_update_time, get_logs, get_settings,
+    init_db, reset_db, save_settings,
 )
 from miejskie_trendy.scheduler import notify_settings_changed, run_scheduler
 
@@ -160,6 +160,11 @@ async def api_get_settings():
         if val and len(val) > 4:
             settings[key] = "***" + val[-4:]
     return settings
+
+
+@app.get("/api/logs")
+async def api_get_logs():
+    return get_logs(200)
 
 
 @app.put("/api/settings")

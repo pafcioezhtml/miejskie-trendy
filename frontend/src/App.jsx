@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useEvents } from './hooks/useEvents'
 import { EventList } from './components/EventList'
+import { LogsDialog } from './components/LogsDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import './App.css'
 
 function App() {
   const { events, fetchedAt, loading, error, updatedIds } = useEvents()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [logsOpen, setLogsOpen] = useState(false)
 
   const formatTime = (iso) => {
     if (!iso) return ''
@@ -34,7 +36,14 @@ function App() {
             </span>
           )}
           <button
-            className="settings-btn"
+            className="header-icon-btn"
+            onClick={() => setLogsOpen(true)}
+            title="Logi"
+          >
+            &#x1F4CB;
+          </button>
+          <button
+            className="header-icon-btn"
             onClick={() => setSettingsOpen(true)}
             title="Ustawienia"
           >
@@ -63,6 +72,10 @@ function App() {
       <SettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+      />
+      <LogsDialog
+        open={logsOpen}
+        onClose={() => setLogsOpen(false)}
       />
     </div>
   )

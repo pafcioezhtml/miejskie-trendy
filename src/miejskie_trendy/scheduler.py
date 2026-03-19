@@ -5,7 +5,7 @@ import asyncio
 import logging
 import os
 
-from miejskie_trendy.db import get_setting
+from miejskie_trendy.db import add_log, get_setting
 from miejskie_trendy.updater import update
 
 logger = logging.getLogger(__name__)
@@ -67,5 +67,6 @@ async def _run_update_safe() -> None:
     try:
         count = await update()
         logger.info("Scheduled update complete: %d active events", count)
-    except Exception:
+    except Exception as e:
         logger.error("Scheduled update failed", exc_info=True)
+        add_log(f"Błąd aktualizacji: {e}", "error")

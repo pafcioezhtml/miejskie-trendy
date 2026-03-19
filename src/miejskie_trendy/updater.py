@@ -16,7 +16,7 @@ from miejskie_trendy.collectors.rss import RSSCollector
 from miejskie_trendy.collectors.tvn_warszawa import TVNWarszawaCollector
 from miejskie_trendy.collectors.um_warszawa import UMWarszawaCollector
 from miejskie_trendy.collectors.wykop import WykopCollector
-from miejskie_trendy.db import get_active_events_summary, upsert_events
+from miejskie_trendy.db import add_log, get_active_events_summary, upsert_events
 from miejskie_trendy.models import RawItem
 from miejskie_trendy.normalizer import normalize
 from miejskie_trendy.prompt import SYSTEM_PROMPT, MERGE_PROMPT, build_user_message, build_merge_message
@@ -60,11 +60,15 @@ async def _collect_articles(lookback_hours: int = 24) -> list[RawItem]:
     for collector, result in zip(collectors, results):
         if isinstance(result, Exception):
             logging.error("Collector %s failed: %s", collector.name, result)
+            add_log(f"Kolektor {collector.name}: błąd — {result}", "error")
             continue
         logging.info("Collector %s: %d items", collector.name, len(result))
+        add_log(f"Kolektor {collector.name}: {len(result)} artykułów")
         all_items.extend(result)
 
-    return normalize(all_items, lookback_hours=lookback_hours)
+    normalized = normalize(all_items, lookback_hours=lookback_hours)
+    add_log(f"Normalizacja: {len(all_items)} → {len(normalized)} artykułów (lookback {lookback_hours}h)")
+    return normalized
 
 
 def _match_by_url_overlap(
@@ -105,11 +109,15 @@ async def update() -> int:
     lookback = INITIAL_LOOKBACK_HOURS if is_first_run else 24
     if is_first_run:
         logger.info("First run detected — collecting %d hours of articles", lookback)
+        add_log(f"Pierwszy start — zbieranie artykułów z {lookback}h", "info")
+    else:
+        add_log("Rozpoczynam aktualizację wydarzeń")
 
     items = await _collect_articles(lookback_hours=lookback)
 
     if not items:
         logger.warning("No articles collected — skipping update.")
+        add_log("Brak artykułów po normalizacji — pomijam", "warning")
         return 0
 
     # Build normalized URL set for matching
@@ -131,13 +139,17 @@ async def update() -> int:
             "Merge mode: %d existing events, %d new articles, %d URL overlaps",
             len(existing), len(items), len(url_matches),
         )
+        add_log(f"Tryb merge: {len(existing)} istniejących, {len(items)} nowych artykułów, {len(url_matches)} dopasowań URL")
         system = MERGE_PROMPT
         user_msg = build_merge_message(existing, articles_dicts, today_str)
     else:
         # Fresh mode: no existing events
         logger.info("Fresh mode: %d articles", len(items))
+        add_log(f"Tryb fresh: {len(items)} artykułów do analizy")
         system = SYSTEM_PROMPT
         user_msg = build_user_message(articles_dicts, today_str)
+
+    add_log("Wysyłam artykuły do Claude do grupowania...")
 
     client = anthropic.AsyncAnthropic()
     response = await client.messages.create(
@@ -153,6 +165,7 @@ async def update() -> int:
         data = json.loads(raw_text)
     except json.JSONDecodeError:
         logger.error("Failed to parse Claude response:\n%s", raw_text[:500])
+        add_log("Błąd parsowania odpowiedzi Claude", "error")
         return len(existing)
 
     # Build events with source details
@@ -186,4 +199,11 @@ async def update() -> int:
 
     upsert_events(events_to_save)
     logger.info("Update complete: %d events", len(events_to_save))
+
+    # Log each event
+    for ev in events_to_save:
+        n_src = len(ev.get("sources", []))
+        add_log(f"Wydarzenie: {ev['name']} ({n_src} nowych źródeł, {ev.get('category', '?')})")
+
+    add_log(f"Aktualizacja zakończona: {len(events_to_save)} aktywnych wydarzeń")
     return len(events_to_save)

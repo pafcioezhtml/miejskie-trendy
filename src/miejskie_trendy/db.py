@@ -61,6 +61,13 @@ def init_db() -> None:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                level TEXT NOT NULL DEFAULT 'info',
+                message TEXT NOT NULL
+            );
         """)
         conn.commit()
         logger.info("Database initialized at %s", _get_db_path())
@@ -276,5 +283,41 @@ def save_settings(settings: dict[str, str]) -> None:
                 )
         conn.commit()
         logger.info("Settings saved: %s", list(settings.keys()))
+    finally:
+        conn.close()
+
+
+# --- Logs ---
+
+MAX_LOG_ENTRIES = 500
+
+
+def add_log(message: str, level: str = "info") -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO logs (timestamp, level, message) VALUES (?, ?, ?)",
+            (now, level, message),
+        )
+        # Trim old entries
+        conn.execute(
+            "DELETE FROM logs WHERE id NOT IN "
+            "(SELECT id FROM logs ORDER BY id DESC LIMIT ?)",
+            (MAX_LOG_ENTRIES,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_logs(limit: int = 100) -> list[dict]:
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT timestamp, level, message FROM logs ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()
