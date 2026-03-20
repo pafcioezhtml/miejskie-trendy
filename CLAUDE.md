@@ -1,43 +1,56 @@
 # Miejskie Trendy
 
-Warsaw city events tracker — collects news articles and social media posts about events affecting Warsaw residents, groups them using Claude AI, and displays them in a web UI.
+Warsaw city events tracker — collects news articles and social media posts about events affecting Warsaw residents, groups them using Claude AI, and displays them in a dark glass-morphism web UI.
 
 ## Architecture
 
 ```
-[Collectors] → [Normalizer] → [Claude Sonnet Grouper] → [FastAPI] → [React Frontend]
+[Collectors] → [Normalizer] → [Claude Sonnet Grouper] → [SQLite DB] ← [FastAPI] → [React Frontend]
+                                                              ↑
+                                                    [Background Scheduler]
 ```
 
-**Pipeline:** Async collectors gather raw articles in parallel → normalizer deduplicates and filters to last 24h → Claude Sonnet selects relevant city events, groups related articles, extracts locations → JSON output.
+**Pipeline:** Async collectors gather raw articles in parallel → normalizer deduplicates and filters by time → Claude Sonnet selects relevant city events, groups related articles, extracts locations → results stored in SQLite. Background scheduler runs updates periodically. Frontend polls API every 30s.
 
-**Key design decision:** The Claude prompt in `prompt.py` is the primary configuration for what counts as a "city event." Changing the scope (e.g., only transport, only culture) means editing the prompt text, not the code.
+**Key design decision:** The Claude prompt in `prompt.py` is the primary configuration for what counts as a "city event." Changing the scope means editing the prompt text, not the code. Two prompts exist: `SYSTEM_PROMPT` (fresh mode) and `MERGE_PROMPT` (incremental updates with existing events).
 
 ## Project Structure
 
 ```
 src/miejskie_trendy/
 ├── main.py              # CLI entry point, orchestrates pipeline, run() returns list[dict]
-├── api.py               # FastAPI server, serves /api/events + static frontend
+├── api.py               # FastAPI server, serves /api/events + settings + logs + static frontend
 ├── models.py            # RawItem, Source, Event dataclasses
-├── normalizer.py        # URL dedup, date filtering (24h lookback)
+├── db.py                # SQLite: events, sources, settings, logs tables
+├── normalizer.py        # URL dedup, date filtering (24h lookback, 72h on first run)
 ├── grouper.py           # Claude Sonnet API call, parses JSON response into Events
-├── prompt.py            # System prompt + user message builder (MOST IMPORTANT FILE for tuning)
+├── updater.py           # Full update cycle: collect → match → merge via Claude → save to DB
+├── scheduler.py         # Background asyncio task, reads interval/enabled from DB settings
+├── prompt.py            # System prompt + merge prompt + message builders (MOST IMPORTANT for tuning)
 └── collectors/
     ├── base.py           # Collector Protocol
-    ├── google_news.py    # Google News RSS (query "Warszawa when:1d")
+    ├── google_news.py    # Google News RSS (per-day queries to bypass 100-result limit)
     ├── tvn_warszawa.py   # TVN Warszawa RSS feed
     ├── um_warszawa.py    # um.warszawa.pl HTML scraper (fragile, may need selector updates)
     ├── reddit.py         # Reddit r/warsaw public JSON API (no key needed)
-    ├── wykop.py          # Wykop.pl API v3 (needs WYKOP_KEY + WYKOP_SECRET)
-    ├── rss.py            # Universal RSS collector (used for extra feeds)
+    ├── wykop.py          # Wykop.pl API v3 (needs WYKOP_KEY + WYKOP_SECRET, graceful skip if missing)
+    ├── rss.py            # Universal RSS collector (used for extra feeds in EXTRA_RSS_FEEDS)
     └── bluesky.py        # Bluesky (NOT ACTIVE — API requires auth, kept for future use)
 
-frontend/                # React + Vite SPA
+frontend/                # React + Vite SPA, dark glass-morphism UI
 ├── src/
-│   ├── App.jsx
-│   ├── App.css
-│   ├── hooks/useEvents.js
-│   └── components/      # EventCard, CategoryBadge, RelevanceIndicator, SourceLinks
+│   ├── App.jsx / App.css
+│   ├── hooks/useEvents.js    # Polls /api/events, detects new events vs new sources
+│   └── components/
+│       ├── EventCard.jsx     # Card with category badge, relevance dots, location, time range
+│       ├── EventList.jsx
+│       ├── CategoryBadge.jsx # Colored translucent pill per category
+│       ├── RelevanceIndicator.jsx
+│       ├── SourceLinks.jsx   # Expandable sources with "N nowych" badge, Sparkles icon on new
+│       ├── ActivityChart.jsx # Variable-width histogram (6h bins, auto-subdivide dense ones)
+│       ├── TimeRange.jsx     # Earliest–latest source date span
+│       ├── SettingsDialog.jsx # Refresh interval, on/off, API keys
+│       └── LogsDialog.jsx    # Scrollable activity log from DB
 └── dist/                # Built static files, served by FastAPI in production
 ```
 
@@ -58,54 +71,54 @@ python -m miejskie_trendy.main
 ## Environment Variables
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...     # Required
-WYKOP_KEY=...                     # Optional, free from https://dev.wykop.pl/
-WYKOP_SECRET=...                  # Optional
+ANTHROPIC_API_KEY=sk-ant-...         # Required (or set via Settings UI)
+WYKOP_KEY=...                         # Optional, free from https://dev.wykop.pl/
+WYKOP_SECRET=...                      # Optional
+UPDATE_INTERVAL_MINUTES=60            # Default scheduler interval
+DATABASE_PATH=data/events.db          # SQLite path
 ```
 
-All other data sources (Google News RSS, TVN Warszawa RSS, um.warszawa.pl, Reddit, Warsaw Insider, Notes From Poland) are free and require no keys.
+API keys can also be set via the Settings dialog in the UI (stored in SQLite, override env vars).
+
+## API Endpoints
+
+- `GET /api/events` — read active events from DB (instant, no pipeline)
+- `POST /api/events/refresh` — trigger immediate update cycle
+- `POST /api/events/rebuild` — clear DB and do fresh 3-day collection
+- `GET /api/settings` — get settings (keys masked)
+- `PUT /api/settings` — save settings, notify scheduler
+- `GET /api/logs` — get activity logs (last 200 entries)
 
 ## Key Conventions
 
 - **Language:** All user-facing text (prompts, event names, descriptions) is in Polish
-- **Adding RSS feeds:** Add a tuple `(url, name)` to `EXTRA_RSS_FEEDS` in `main.py`
-- **Adding a new collector:** Create a class with `name: str` and `async def collect(self) -> list[RawItem]`, add to collectors list in `main.py`
-- **API cache:** In-memory, 15-minute TTL, with asyncio.Lock to prevent concurrent Claude calls. `POST /api/events/refresh` clears cache
-- **um.warszawa.pl scraper:** Most fragile component — if HTML structure changes, update selectors in `um_warszawa.py`
-- **Date filtering:** Normalizer uses 24h lookback from start of today (UTC), not strict "today only" — handles late-night articles gracefully
-- **Claude model:** `claude-sonnet-4-20250514` in `grouper.py`
-- **Frontend build:** `frontend/dist/` is served by FastAPI's StaticFiles mount. After frontend changes, run `cd frontend && npm run build`
-- **No database:** Everything is in-memory. Each server restart fetches fresh data on first request
+- **Adding RSS feeds:** Add a tuple `(url, name)` to `EXTRA_RSS_FEEDS` in `updater.py`
+- **Adding a new collector:** Create a class with `name: str` and `async def collect(self) -> list[RawItem]`, add to collectors list in `updater.py`
+- **um.warszawa.pl scraper:** Most fragile component — if HTML structure changes, update selectors
+- **Date filtering:** 24h lookback normally, 72h on first run (empty DB). Google News uses per-day queries to bypass 100-result limit.
+- **Merge logic:** Hybrid — URL overlap pre-matching + Claude merge prompt. Only dense bins in activity chart are subdivided (variable-width).
+- **Claude model:** `claude-sonnet-4-20250514` in `grouper.py` and `updater.py`
+- **Frontend:** Dark glass-morphism theme, Lucide icons, auto-polls every 30s
+- **Update indicators:** "Nowy temat" badge (fades 30s) for new events, "N nowych" golden Sparkles badge for new sources (persists until next scheduler refresh)
+- **Activity chart:** Fixed 2px/hour scale across all events. 6h bins, auto-subdivide dense bins (5+ articles → 3h, 7+ → 2h, 10+ → 1h). Axis labels at 00/12h, dates on separate row.
+- **Settings:** Stored in SQLite `settings` table. Scheduler re-reads on change via asyncio.Event.
+- **Logs:** Stored in SQLite `logs` table (max 500 entries). Updater logs collector results, normalization, Claude calls, found events.
 
 ## Deployment (Railway)
 
 - **Live URL:** https://miejskie-trendy-production.up.railway.app
 - **GitHub:** https://github.com/pafcioezhtml/miejskie-trendy
-- **Railway project:** `brilliant-peace`, service `miejskie-trendy`
-- **Dockerfile:** Multi-stage build (Node for frontend, Python for backend). Railway auto-detects it.
-- **`FRONTEND_DIST`:** Set in Dockerfile to `/app/frontend/dist`. Override if frontend dist is elsewhere.
-- **Frontend mount:** Happens at FastAPI startup event, not import time — ensures Docker layer ordering works.
-- **Railway sets `PORT` automatically** (currently 8080). `api.py` reads it from env.
+- **Railway project:** `brilliant-peace`, service `miejskie-trendy`, volume at `/app/data`
+- **Dockerfile:** Multi-stage build (Node for frontend, Python for backend)
+- **Persistent volume:** SQLite DB at `/app/data/events.db` — survives redeploy
+- **Frontend mount:** Happens at FastAPI lifespan startup, `FRONTEND_DIST=/app/frontend/dist`
+- **Railway sets `PORT` automatically.** `api.py` reads from env.
 
 ### Railway CLI commands
 
 ```bash
-# Deploy
-railway up -s miejskie-trendy --detach
-
-# Set env vars
-railway variables set KEY=value -s miejskie-trendy
-
-# View logs
-railway logs -s miejskie-trendy
-
-# Generate/view public domain
-railway domain -s miejskie-trendy
-```
-
-### Local Docker test
-
-```bash
-docker build -t miejskie-trendy .
-docker run -p 8000:8000 -e ANTHROPIC_API_KEY=... miejskie-trendy
+railway up -s miejskie-trendy --detach          # Deploy
+railway variables set KEY=value -s miejskie-trendy  # Set env vars
+railway logs -s miejskie-trendy                 # View logs
+railway domain -s miejskie-trendy               # Public domain
 ```
