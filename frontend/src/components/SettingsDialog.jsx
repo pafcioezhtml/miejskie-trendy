@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 
 export function SettingsDialog({ open, onClose }) {
   const [settings, setSettings] = useState(null)
@@ -47,7 +48,7 @@ export function SettingsDialog({ open, onClose }) {
         <div className="dialog-header">
           <h2>Ustawienia</h2>
           <button className="dialog-close" onClick={onClose}>
-            &times;
+            <X size={20} />
           </button>
         </div>
 

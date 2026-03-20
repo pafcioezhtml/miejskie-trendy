@@ -1,3 +1,4 @@
+import { MapPin } from 'lucide-react'
 import { CategoryBadge } from './CategoryBadge'
 import { RelevanceIndicator } from './RelevanceIndicator'
 import { SourceLinks } from './SourceLinks'
@@ -17,7 +18,7 @@ export function EventCard({ event, isUpdated }) {
       <h2 className="event-name">{event.name}</h2>
       {event.location && (
         <p className="event-location">
-          <span className="location-icon">&#x1F4CD;</span> {event.location}
+          <MapPin size={14} /> {event.location}
         </p>
       )}
       <p className="event-description">{event.description}</p>

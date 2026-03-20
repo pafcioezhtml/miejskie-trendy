@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { X } from 'lucide-react'
 
 function formatTime(iso) {
   if (!iso) return ''
@@ -55,7 +56,7 @@ export function LogsDialog({ open, onClose }) {
         <div className="dialog-header">
           <h2>Logi aktualizacji</h2>
           <button className="dialog-close" onClick={onClose}>
-            &times;
+            <X size={20} />
           </button>
         </div>
         <div className="logs-body">

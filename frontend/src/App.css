@@ -194,8 +194,9 @@ body {
   font-weight: 500;
 }
 
-.location-icon {
-  font-size: 0.85rem;
+.event-location svg {
+  flex-shrink: 0;
+  opacity: 0.6;
 }
 
 .event-description {

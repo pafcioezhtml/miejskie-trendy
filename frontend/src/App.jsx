@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Settings, ScrollText } from 'lucide-react'
 import { useEvents } from './hooks/useEvents'
 import { EventList } from './components/EventList'
 import { LogsDialog } from './components/LogsDialog'
@@ -40,14 +41,14 @@ function App() {
             onClick={() => setLogsOpen(true)}
             title="Logi"
           >
-            &#x1F4CB;
+            <ScrollText size={18} />
           </button>
           <button
             className="header-icon-btn"
             onClick={() => setSettingsOpen(true)}
             title="Ustawienia"
           >
-            &#x2699;
+            <Settings size={18} />
           </button>
         </div>
       </header>
