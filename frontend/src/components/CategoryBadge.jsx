@@ -1,13 +1,13 @@
 const CATEGORY_COLORS = {
-  transport: { bg: '#dbeafe', text: '#1e40af' },
-  inwestycje: { bg: '#d1fae5', text: '#065f46' },
-  protest: { bg: '#fee2e2', text: '#991b1b' },
-  kultura: { bg: '#ede9fe', text: '#5b21b6' },
-  infrastruktura: { bg: '#fef3c7', text: '#92400e' },
-  pogoda: { bg: '#e0f2fe', text: '#0369a1' },
-  polityka_lokalna: { bg: '#fce7f3', text: '#9d174d' },
-  bezpieczenstwo: { bg: '#fee2e2', text: '#dc2626' },
-  inne: { bg: '#f3f4f6', text: '#374151' },
+  transport: { bg: 'rgba(59, 130, 246, 0.15)', text: '#60a5fa' },
+  inwestycje: { bg: 'rgba(34, 197, 94, 0.15)', text: '#4ade80' },
+  protest: { bg: 'rgba(239, 68, 68, 0.15)', text: '#f87171' },
+  kultura: { bg: 'rgba(168, 85, 247, 0.15)', text: '#c084fc' },
+  infrastruktura: { bg: 'rgba(245, 158, 11, 0.15)', text: '#fbbf24' },
+  pogoda: { bg: 'rgba(6, 182, 212, 0.15)', text: '#22d3ee' },
+  polityka_lokalna: { bg: 'rgba(236, 72, 153, 0.15)', text: '#f472b6' },
+  bezpieczenstwo: { bg: 'rgba(239, 68, 68, 0.15)', text: '#fb923c' },
+  inne: { bg: 'rgba(148, 163, 184, 0.15)', text: '#94a3b8' },
 }
 
 const CATEGORY_LABELS = {
