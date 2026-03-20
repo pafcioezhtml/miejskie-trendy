@@ -246,22 +246,24 @@ body {
 
 /* Activity chart (inline, compact) */
 .activity-chart {
-  flex: 1;
-  max-width: 120px;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .chart-bars {
   display: flex;
   align-items: flex-end;
-  gap: 1px;
   height: 16px;
+  width: fit-content;
 }
 
 .chart-col {
-  flex: 1;
   height: 100%;
   display: flex;
   align-items: flex-end;
+  padding: 0 0.5px;
+  cursor: default;
+  flex-shrink: 0;
 }
 
 .chart-bar {
@@ -276,8 +278,54 @@ body {
   background: var(--color-accent);
 }
 
-.chart-labels {
-  display: none;
+.chart-axis {
+  display: flex;
+  height: 8px;
+  margin-top: 1px;
+  width: fit-content;
+}
+
+.chart-axis-slot {
+  flex-shrink: 0;
+  overflow: visible;
+  position: relative;
+}
+
+.chart-axis-dates {
+  margin-top: 0;
+}
+
+.chart-tick {
+  font-size: 0.45rem;
+  color: var(--color-text-muted);
+  line-height: 1;
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.chart-tick-date {
+  font-size: 0.4rem;
+  opacity: 0.5;
+}
+
+.chart-tooltip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--glass-border);
+  color: var(--color-text);
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .new-sources-badge {
