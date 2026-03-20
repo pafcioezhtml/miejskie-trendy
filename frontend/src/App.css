@@ -280,6 +280,34 @@ body {
   display: none;
 }
 
+.new-sources-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.5rem;
+  background: rgba(250, 204, 21, 0.12);
+  color: #fbbf24;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.source-item-new {
+  position: relative;
+}
+
+.source-new-icon {
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.source-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
 .source-toggle {
   background: none;
   border: none;

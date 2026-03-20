@@ -7,7 +7,7 @@ import { SettingsDialog } from './components/SettingsDialog'
 import './App.css'
 
 function App() {
-  const { events, fetchedAt, loading, error, updatedIds } = useEvents()
+  const { events, fetchedAt, loading, error, newEventIds, newSourceUrls } = useEvents()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [logsOpen, setLogsOpen] = useState(false)
 
@@ -66,7 +66,7 @@ function App() {
             <p>Ładowanie wydarzeń...</p>
           </div>
         ) : (
-          <EventList events={events} updatedIds={updatedIds} />
+          <EventList events={events} newEventIds={newEventIds} newSourceUrls={newSourceUrls} />
         )}
       </main>
 

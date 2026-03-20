@@ -1,6 +1,6 @@
 import { EventCard } from './EventCard'
 
-export function EventList({ events, updatedIds }) {
+export function EventList({ events, newEventIds, newSourceUrls }) {
   if (events.length === 0) {
     return <p className="empty-state">Brak wydarzeń do wyświetlenia.</p>
   }
@@ -11,7 +11,8 @@ export function EventList({ events, updatedIds }) {
         <EventCard
           key={event.id}
           event={event}
-          isUpdated={updatedIds.has(event.id)}
+          isNew={newEventIds.has(event.id)}
+          newUrls={newSourceUrls.get(event.id) || null}
         />
       ))}
     </div>

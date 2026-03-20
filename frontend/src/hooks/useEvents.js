@@ -7,7 +7,12 @@ export function useEvents() {
   const [fetchedAt, setFetchedAt] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [updatedIds, setUpdatedIds] = useState(new Set())
+
+  // newEventIds: brand new events (not in previous snapshot)
+  const [newEventIds, setNewEventIds] = useState(new Set())
+  // newSourceUrls: map of eventId → Set of new source URLs
+  const [newSourceUrls, setNewSourceUrls] = useState(new Map())
+
   const prevSnapshotRef = useRef(null)
 
   const fetchEvents = useCallback(async () => {
@@ -20,24 +25,41 @@ export function useEvents() {
       const data = await res.json()
       const newEvents = data.events || []
 
-      // Detect changes: new events or events with new sources
       if (prevSnapshotRef.current) {
         const prev = prevSnapshotRef.current
-        const changed = new Set()
+        const brandNew = new Set()
+        const updatedSources = new Map()
+
         for (const ev of newEvents) {
           const old = prev.get(ev.id)
           if (!old) {
-            // Brand new event
-            changed.add(ev.id)
-          } else if (ev.sources.length !== old.sourceCount || ev.last_updated_at !== old.lastUpdated) {
-            // Updated event (new sources or description changed)
-            changed.add(ev.id)
+            brandNew.add(ev.id)
+          } else {
+            // Find source URLs that weren't there before
+            const currentUrls = new Set(ev.sources.map((s) => s.url))
+            const added = new Set()
+            for (const url of currentUrls) {
+              if (!old.sourceUrls.has(url)) {
+                added.add(url)
+              }
+            }
+            if (added.size > 0) {
+              updatedSources.set(ev.id, added)
+            }
           }
         }
-        if (changed.size > 0) {
-          setUpdatedIds(changed)
-          // Clear highlight after 30 seconds
-          setTimeout(() => setUpdatedIds(new Set()), 30_000)
+
+        if (brandNew.size > 0) setNewEventIds(brandNew)
+        if (updatedSources.size > 0) {
+          setNewSourceUrls((prev) => {
+            const merged = new Map(prev)
+            for (const [id, urls] of updatedSources) {
+              const existing = merged.get(id) || new Set()
+              for (const u of urls) existing.add(u)
+              merged.set(id, existing)
+            }
+            return merged
+          })
         }
       }
 
@@ -45,8 +67,7 @@ export function useEvents() {
       const snapshot = new Map()
       for (const ev of newEvents) {
         snapshot.set(ev.id, {
-          sourceCount: ev.sources.length,
-          lastUpdated: ev.last_updated_at,
+          sourceUrls: new Set(ev.sources.map((s) => s.url)),
         })
       }
       prevSnapshotRef.current = snapshot
@@ -72,5 +93,22 @@ export function useEvents() {
     return () => clearInterval(interval)
   }, [fetchEvents])
 
-  return { events, fetchedAt, loading, error, updatedIds }
+  // Clear "new event" badges after 30s, but keep newSourceUrls until next refresh
+  useEffect(() => {
+    if (newEventIds.size === 0) return
+    const timer = setTimeout(() => setNewEventIds(new Set()), 30_000)
+    return () => clearTimeout(timer)
+  }, [newEventIds])
+
+  // Clear newSourceUrls on each fresh data fetch (they persist across polls
+  // but reset when the underlying data actually changes via scheduler)
+  const prevFetchedAt = useRef(null)
+  useEffect(() => {
+    if (fetchedAt && prevFetchedAt.current && fetchedAt !== prevFetchedAt.current) {
+      setNewSourceUrls(new Map())
+    }
+    prevFetchedAt.current = fetchedAt
+  }, [fetchedAt])
+
+  return { events, fetchedAt, loading, error, newEventIds, newSourceUrls }
 }
