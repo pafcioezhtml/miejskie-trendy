@@ -3,26 +3,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 from datetime import date
 
 import anthropic
 
+from miejskie_trendy.config import MODEL, strip_markdown_fences
 from miejskie_trendy.models import Event, RawItem, Source
 from miejskie_trendy.prompt import SYSTEM_PROMPT, build_user_message
 
 logger = logging.getLogger(__name__)
-
-MODEL = "claude-sonnet-4-20250514"
-
-
-def _strip_markdown_fences(text: str) -> str:
-    """Remove ```json ... ``` wrapping if present."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```\w*\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-    return text.strip()
 
 
 async def group_events(
@@ -59,7 +48,7 @@ async def group_events(
         return []
 
     raw_text = response.content[0].text
-    raw_text = _strip_markdown_fences(raw_text)
+    raw_text = strip_markdown_fences(raw_text)
 
     try:
         data = json.loads(raw_text)

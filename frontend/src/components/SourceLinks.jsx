@@ -1,17 +1,7 @@
 import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { ActivityChart } from './ActivityChart'
-
-function formatDate(iso) {
-  if (!iso) return null
-  const d = new Date(iso)
-  return d.toLocaleString('pl-PL', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatShortDate } from '../utils/formatDate'
 
 export function SourceLinks({ sources, newUrls }) {
   const [expanded, setExpanded] = useState(false)
@@ -48,7 +38,7 @@ export function SourceLinks({ sources, newUrls }) {
                   {source.title}
                 </a>
                 {source.published_at && (
-                  <span className="source-date">{formatDate(source.published_at)}</span>
+                  <span className="source-date">{formatShortDate(source.published_at)}</span>
                 )}
               </li>
             )

@@ -1,6 +1,7 @@
+import { memo } from 'react'
 import { EventCard } from './EventCard'
 
-export function EventList({ events, newEventIds, newSourceUrls }) {
+export const EventList = memo(function EventList({ events, newEventIds, newSourceUrls }) {
   if (events.length === 0) {
     return <p className="empty-state">Brak wydarzeń do wyświetlenia.</p>
   }
@@ -17,4 +18,4 @@ export function EventList({ events, newEventIds, newSourceUrls }) {
       ))}
     </div>
   )
-}
+})

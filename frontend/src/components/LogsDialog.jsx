@@ -1,17 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
-
-function formatTime(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleString('pl-PL', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
+import { formatLogDate } from '../utils/formatDate'
 
 const LEVEL_CLASSES = {
   error: 'log-error',
@@ -43,7 +32,7 @@ export function LogsDialog({ open, onClose }) {
       fetch('/api/logs')
         .then((r) => r.json())
         .then(setLogs)
-        .catch(() => {})
+        .catch((e) => console.warn('Log refresh failed:', e.message))
     }, 10_000)
     return () => clearInterval(interval)
   }, [open])
@@ -68,7 +57,7 @@ export function LogsDialog({ open, onClose }) {
             <div className="logs-list">
               {[...logs].reverse().map((log, i) => (
                 <div key={i} className={`log-entry ${LEVEL_CLASSES[log.level] || ''}`}>
-                  <span className="log-time">{formatTime(log.timestamp)}</span>
+                  <span className="log-time">{formatLogDate(log.timestamp)}</span>
                   <span className="log-msg">{log.message}</span>
                 </div>
               ))}

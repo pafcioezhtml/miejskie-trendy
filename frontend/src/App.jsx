@@ -4,24 +4,13 @@ import { useEvents } from './hooks/useEvents'
 import { EventList } from './components/EventList'
 import { LogsDialog } from './components/LogsDialog'
 import { SettingsDialog } from './components/SettingsDialog'
+import { formatFullDate } from './utils/formatDate'
 import './App.css'
 
 function App() {
   const { events, fetchedAt, loading, error, newEventIds, newSourceUrls } = useEvents()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [logsOpen, setLogsOpen] = useState(false)
-
-  const formatTime = (iso) => {
-    if (!iso) return ''
-    const d = new Date(iso)
-    return d.toLocaleString('pl-PL', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
 
   return (
     <div className="app">
@@ -33,7 +22,7 @@ function App() {
         <div className="header-actions">
           {fetchedAt && (
             <span className="fetched-at">
-              Zaktualizowano: {formatTime(fetchedAt)}
+              Zaktualizowano: {formatFullDate(fetchedAt)}
             </span>
           )}
           <button

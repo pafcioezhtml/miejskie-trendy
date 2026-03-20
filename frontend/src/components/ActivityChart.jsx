@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 
 const MIN_SOURCES_FOR_CHART = 4
 const BASE_BIN_HOURS = 6
@@ -32,95 +32,104 @@ export function ActivityChart({ sources }) {
   const [tooltip, setTooltip] = useState(null)
   const chartRef = useRef(null)
 
-  const dates = (sources || [])
-    .map((s) => s.published_at)
-    .filter(Boolean)
-    .map((iso) => new Date(iso))
+  const chartData = useMemo(() => {
+    const dates = (sources || [])
+      .map((s) => s.published_at)
+      .filter(Boolean)
+      .map((iso) => new Date(iso))
 
-  if (dates.length < MIN_SOURCES_FOR_CHART) return null
+    if (dates.length < MIN_SOURCES_FOR_CHART) return null
 
-  const sorted = [...dates].sort((a, b) => a - b)
-  const earliest = sorted[0]
-  const latest = sorted[sorted.length - 1]
+    const sorted = [...dates].sort((a, b) => a - b)
+    const earliest = sorted[0]
+    const latest = sorted[sorted.length - 1]
 
-  // Step 1: coarse 6h bins
-  const coarseBins = new Map()
-  for (const d of sorted) {
-    const key = binTimestamp(d, BASE_BIN_HOURS)
-    if (!coarseBins.has(key)) coarseBins.set(key, [])
-    coarseBins.get(key).push(d)
-  }
+    // Step 1: coarse 6h bins
+    const coarseBins = new Map()
+    for (const d of sorted) {
+      const key = binTimestamp(d, BASE_BIN_HOURS)
+      if (!coarseBins.has(key)) coarseBins.set(key, [])
+      coarseBins.get(key).push(d)
+    }
 
-  // Step 2: build final bins — only subdivide individual dense bins
-  const finalBins = new Map()
-  const startBin = binTimestamp(earliest, BASE_BIN_HOURS)
-  const endBin = binTimestamp(latest, BASE_BIN_HOURS)
-  const cursor = new Date(startBin)
+    // Step 2: build final bins — only subdivide individual dense bins
+    const finalBins = new Map()
+    const startBin = binTimestamp(earliest, BASE_BIN_HOURS)
+    const endBin = binTimestamp(latest, BASE_BIN_HOURS)
+    const cursor = new Date(startBin)
 
-  while (cursor.getTime() <= endBin) {
-    const coarseKey = cursor.getTime()
-    const items = coarseBins.get(coarseKey) || []
-    const binH = subBinHours(items.length)
+    while (cursor.getTime() <= endBin) {
+      const coarseKey = cursor.getTime()
+      const items = coarseBins.get(coarseKey) || []
+      const binH = subBinHours(items.length)
 
-    if (binH === BASE_BIN_HOURS) {
-      finalBins.set(coarseKey, { count: items.length, hours: BASE_BIN_HOURS })
-    } else {
-      // Subdivide only this dense bin
-      const windowStart = new Date(coarseKey)
-      for (let i = 0; i < BASE_BIN_HOURS / binH; i++) {
-        const subTs = new Date(windowStart)
-        subTs.setHours(subTs.getHours() + i * binH)
-        finalBins.set(subTs.getTime(), { count: 0, hours: binH })
+      if (binH === BASE_BIN_HOURS) {
+        finalBins.set(coarseKey, { count: items.length, hours: BASE_BIN_HOURS })
+      } else {
+        // Subdivide only this dense bin
+        const windowStart = new Date(coarseKey)
+        for (let i = 0; i < BASE_BIN_HOURS / binH; i++) {
+          const subTs = new Date(windowStart)
+          subTs.setHours(subTs.getHours() + i * binH)
+          finalBins.set(subTs.getTime(), { count: 0, hours: binH })
+        }
+        for (const d of items) {
+          const subKey = binTimestamp(d, binH)
+          const entry = finalBins.get(subKey)
+          if (entry) entry.count++
+        }
       }
-      for (const d of items) {
-        const subKey = binTimestamp(d, binH)
-        const entry = finalBins.get(subKey)
-        if (entry) entry.count++
+      cursor.setHours(cursor.getHours() + BASE_BIN_HOURS)
+    }
+
+    const buckets = [...finalBins.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([ts, { count, hours }]) => ({
+        ts,
+        count,
+        hours,
+        label: formatBinLabel(ts, hours),
+      }))
+
+    const max = Math.max(...buckets.map((b) => b.count))
+
+    // Build tick labels: hours every 12h, dates on separate row
+    const hourTicks = []
+    const dateTicks = []
+    let lastDay = -1
+    for (let i = 0; i < buckets.length; i++) {
+      const d = new Date(buckets[i].ts)
+      const hour = d.getHours()
+      if (hour % 12 === 0) {
+        hourTicks.push({ idx: i, label: String(hour).padStart(2, '0') })
+      }
+      if (d.getDate() !== lastDay) {
+        dateTicks.push({
+          idx: i,
+          label: d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }),
+        })
+        lastDay = d.getDate()
       }
     }
-    cursor.setHours(cursor.getHours() + BASE_BIN_HOURS)
-  }
 
-  const buckets = [...finalBins.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([ts, { count, hours }]) => ({
-      ts,
-      count,
-      hours,
-      label: formatBinLabel(ts, hours),
-    }))
+    return { buckets, max, hourTicks, dateTicks }
+  }, [sources])
 
-  const max = Math.max(...buckets.map((b) => b.count))
+  if (!chartData) return null
+
+  const { buckets, max, hourTicks, dateTicks } = chartData
   const PX_PER_HOUR = 2 // fixed scale: 2px per hour for all charts
 
   const handleMouseEnter = (e, bucket) => {
     const rect = chartRef.current.getBoundingClientRect()
     const barRect = e.currentTarget.getBoundingClientRect()
+    // Clamp tooltip so it doesn't overflow the chart container
+    const rawLeft = barRect.left - rect.left + barRect.width / 2
+    const clampedLeft = Math.max(16, Math.min(rawLeft, rect.width - 16))
     setTooltip({
       text: `${bucket.count}`,
-      left: barRect.left - rect.left + barRect.width / 2,
+      left: clampedLeft,
     })
-  }
-
-  // Build tick labels: hours every 12h, dates on separate row
-  const hourTicks = [] // { idx, label }
-  const dateTicks = [] // { idx, label }
-  let lastDay = -1
-  for (let i = 0; i < buckets.length; i++) {
-    const d = new Date(buckets[i].ts)
-    const hour = d.getHours()
-    // Hour ticks at 00 and 12 only
-    if (hour % 12 === 0) {
-      hourTicks.push({ idx: i, label: String(hour).padStart(2, '0') })
-    }
-    // Date tick on first bin of each new day
-    if (d.getDate() !== lastDay) {
-      dateTicks.push({
-        idx: i,
-        label: d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }),
-      })
-      lastDay = d.getDate()
-    }
   }
 
   return (

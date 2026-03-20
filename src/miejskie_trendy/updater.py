@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 from datetime import date, datetime, timezone
 from urllib.parse import urlparse
 
@@ -16,27 +15,13 @@ from miejskie_trendy.collectors.rss import RSSCollector
 from miejskie_trendy.collectors.tvn_warszawa import TVNWarszawaCollector
 from miejskie_trendy.collectors.um_warszawa import UMWarszawaCollector
 from miejskie_trendy.collectors.wykop import WykopCollector
+from miejskie_trendy.config import EXTRA_RSS_FEEDS, MODEL, strip_markdown_fences
 from miejskie_trendy.db import add_log, get_active_events_summary, upsert_events
 from miejskie_trendy.models import RawItem
 from miejskie_trendy.normalizer import normalize
 from miejskie_trendy.prompt import SYSTEM_PROMPT, MERGE_PROMPT, build_user_message, build_merge_message
 
 logger = logging.getLogger(__name__)
-
-EXTRA_RSS_FEEDS = [
-    ("https://warsawinsider.pl/feed", "warsaw_insider"),
-    ("https://notesfrompoland.com/feed", "notes_from_poland"),
-]
-
-MODEL = "claude-sonnet-4-20250514"
-
-
-def _strip_markdown_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```\w*\n?", "", text)
-        text = re.sub(r"\n?```$", "", text)
-    return text.strip()
 
 
 async def _collect_articles(lookback_hours: int = 24) -> list[RawItem]:
@@ -57,14 +42,22 @@ async def _collect_articles(lookback_hours: int = 24) -> list[RawItem]:
     )
 
     all_items: list[RawItem] = []
+    failed_count = 0
     for collector, result in zip(collectors, results):
         if isinstance(result, Exception):
             logging.error("Collector %s failed: %s", collector.name, result)
             add_log(f"Kolektor {collector.name}: błąd — {result}", "error")
+            failed_count += 1
             continue
         logging.info("Collector %s: %d items", collector.name, len(result))
         add_log(f"Kolektor {collector.name}: {len(result)} artykułów")
         all_items.extend(result)
+
+    if failed_count == len(collectors):
+        logger.error("All %d collectors failed — no data available", failed_count)
+        add_log(f"UWAGA: wszystkie kolektory ({failed_count}) zakończyły się błędem!", "error")
+    elif failed_count > 0:
+        logger.warning("%d/%d collectors failed", failed_count, len(collectors))
 
     normalized = normalize(all_items, lookback_hours=lookback_hours)
     add_log(f"Normalizacja: {len(all_items)} → {len(normalized)} artykułów (lookback {lookback_hours}h)")
@@ -176,7 +169,7 @@ async def update() -> int:
         add_log("Claude zwrócił pustą odpowiedź", "error")
         return len(existing)
 
-    raw_text = _strip_markdown_fences(response.content[0].text)
+    raw_text = strip_markdown_fences(response.content[0].text)
 
     try:
         data = json.loads(raw_text)

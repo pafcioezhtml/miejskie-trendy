@@ -13,12 +13,7 @@ from miejskie_trendy.collectors.rss import RSSCollector
 from miejskie_trendy.collectors.tvn_warszawa import TVNWarszawaCollector
 from miejskie_trendy.collectors.um_warszawa import UMWarszawaCollector
 from miejskie_trendy.collectors.wykop import WykopCollector
-
-# Extra RSS feeds — easy to add/remove
-EXTRA_RSS_FEEDS = [
-    ("https://warsawinsider.pl/feed", "warsaw_insider"),
-    ("https://notesfrompoland.com/feed", "notes_from_poland"),
-]
+from miejskie_trendy.config import EXTRA_RSS_FEEDS
 from miejskie_trendy.grouper import group_events
 from miejskie_trendy.models import RawItem
 from miejskie_trendy.normalizer import normalize
