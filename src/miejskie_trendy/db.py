@@ -144,8 +144,20 @@ def get_active_events_summary() -> list[dict]:
         conn.close()
 
 
-def upsert_events(events: list[dict], now: str | None = None) -> None:
-    """Insert or update events. Deactivate events not in the new list."""
+def upsert_events(
+    events: list[dict],
+    now: str | None = None,
+    deactivate_missing: bool = True,
+) -> None:
+    """Insert or update events.
+
+    Args:
+        events: Event dicts to upsert.
+        now: Timestamp override (ISO format).
+        deactivate_missing: If True, deactivate active events not in this list.
+            Set to False in merge mode to avoid losing events that Claude
+            omitted from its response (token limits, hallucination).
+    """
     if now is None:
         now = datetime.now(timezone.utc).isoformat()
 
@@ -154,6 +166,9 @@ def upsert_events(events: list[dict], now: str | None = None) -> None:
         new_ids = set()
         for ev in events:
             eid = ev["id"]
+            if not eid:
+                logger.warning("Skipping event with empty id: %s", ev.get("name", "?"))
+                continue
             new_ids.add(eid)
 
             # Check if exists
@@ -198,7 +213,7 @@ def upsert_events(events: list[dict], now: str | None = None) -> None:
                 )
 
         # Deactivate events not returned by this run
-        if new_ids:
+        if deactivate_missing and new_ids:
             placeholders = ",".join("?" for _ in new_ids)
             conn.execute(
                 f"UPDATE events SET is_active = 0, last_updated_at = ? "

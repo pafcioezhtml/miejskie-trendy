@@ -152,12 +152,29 @@ async def update() -> int:
     add_log("Wysyłam artykuły do Claude do grupowania...")
 
     client = anthropic.AsyncAnthropic()
-    response = await client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        system=system,
-        messages=[{"role": "user", "content": user_msg}],
-    )
+    try:
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model=MODEL,
+                max_tokens=4096,
+                system=system,
+                messages=[{"role": "user", "content": user_msg}],
+            ),
+            timeout=120,
+        )
+    except asyncio.TimeoutError:
+        logger.error("Claude API call timed out after 120s")
+        add_log("Timeout wywołania Claude API (120s)", "error")
+        return len(existing)
+    except Exception as e:
+        logger.error("Claude API call failed: %s", e)
+        add_log(f"Błąd wywołania Claude API: {e}", "error")
+        return len(existing)
+
+    if not response.content:
+        logger.error("Claude returned empty response")
+        add_log("Claude zwrócił pustą odpowiedź", "error")
+        return len(existing)
 
     raw_text = _strip_markdown_fences(response.content[0].text)
 
@@ -168,23 +185,35 @@ async def update() -> int:
         add_log("Błąd parsowania odpowiedzi Claude", "error")
         return len(existing)
 
+    if not isinstance(data, list):
+        logger.error("Claude response is not a list: %s", type(data).__name__)
+        add_log("Błąd: odpowiedź Claude nie jest listą JSON", "error")
+        return len(existing)
+
     # Build events with source details
     events_to_save = []
     for entry in data:
+        if not isinstance(entry, dict):
+            logger.warning("Skipping non-dict entry in Claude response")
+            continue
+
         source_ids = entry.get("source_ids", [])
         sources = []
         for idx in source_ids:
-            if 0 <= idx < len(items):
+            if isinstance(idx, int) and 0 <= idx < len(items):
                 sources.append({
                     "title": items[idx].title,
                     "url": items[idx].url,
                     "published_at": items[idx].published_at.isoformat() if items[idx].published_at else None,
                 })
 
-        # Also keep existing sources if event was matched
         eid = entry.get("id", "")
         if entry.get("existing_event_id"):
             eid = entry["existing_event_id"]
+
+        if not eid:
+            logger.warning("Skipping event with no id: %s", entry.get("name", "?"))
+            continue
 
         events_to_save.append({
             "id": eid,
@@ -197,7 +226,9 @@ async def update() -> int:
             "sources": sources,
         })
 
-    upsert_events(events_to_save)
+    # In merge mode, don't deactivate events that Claude omitted —
+    # they may have been skipped due to token limits, not because they're stale.
+    upsert_events(events_to_save, deactivate_missing=not existing)
     logger.info("Update complete: %d events", len(events_to_save))
 
     # Log each event

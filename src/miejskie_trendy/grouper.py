@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -36,12 +37,26 @@ async def group_events(
     logger.info("Sending %d articles to Claude for grouping...", len(items))
 
     client = anthropic.AsyncAnthropic()
-    response = await client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model=MODEL,
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_message}],
+            ),
+            timeout=120,
+        )
+    except asyncio.TimeoutError:
+        logger.error("Claude API call timed out after 120s")
+        return []
+    except Exception as e:
+        logger.error("Claude API call failed: %s", e)
+        return []
+
+    if not response.content:
+        logger.error("Claude returned empty response")
+        return []
 
     raw_text = response.content[0].text
     raw_text = _strip_markdown_fences(raw_text)
@@ -52,12 +67,20 @@ async def group_events(
         logger.error("Failed to parse Claude response as JSON:\n%s", raw_text[:500])
         return []
 
+    if not isinstance(data, list):
+        logger.error("Claude response is not a list: %s", type(data).__name__)
+        return []
+
     events: list[Event] = []
     for entry in data:
+        if not isinstance(entry, dict):
+            logger.warning("Skipping non-dict entry in Claude response")
+            continue
+
         source_ids = entry.get("source_ids", [])
         sources = []
         for idx in source_ids:
-            if 0 <= idx < len(items):
+            if isinstance(idx, int) and 0 <= idx < len(items):
                 sources.append(Source(
                     title=items[idx].title,
                     url=items[idx].url,
