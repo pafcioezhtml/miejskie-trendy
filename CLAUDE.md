@@ -20,6 +20,7 @@ Warsaw city events tracker — collects news articles and social media posts abo
 src/miejskie_trendy/
 ├── main.py              # CLI entry point, orchestrates pipeline, run() returns list[dict]
 ├── api.py               # FastAPI server, serves /api/events + settings + logs + static frontend
+├── config.py            # Shared constants: EXTRA_RSS_FEEDS, MODEL, strip_markdown_fences()
 ├── models.py            # RawItem, Source, Event dataclasses
 ├── db.py                # SQLite: events, sources, settings, logs tables
 ├── normalizer.py        # URL dedup, date filtering (24h lookback, 72h on first run)
@@ -41,13 +42,14 @@ frontend/                # React + Vite SPA, dark glass-morphism UI
 ├── src/
 │   ├── App.jsx / App.css
 │   ├── hooks/useEvents.js    # Polls /api/events, detects new events vs new sources
+│   ├── utils/formatDate.js   # Shared date formatting (formatShortDate, formatFullDate, formatLogDate)
 │   └── components/
 │       ├── EventCard.jsx     # Card with category badge, relevance dots, location, time range
-│       ├── EventList.jsx
+│       ├── EventList.jsx     # React.memo wrapped list
 │       ├── CategoryBadge.jsx # Colored translucent pill per category
 │       ├── RelevanceIndicator.jsx
 │       ├── SourceLinks.jsx   # Expandable sources with "N nowych" badge, Sparkles icon on new
-│       ├── ActivityChart.jsx # Variable-width histogram (6h bins, auto-subdivide dense ones)
+│       ├── ActivityChart.jsx # Variable-width histogram (6h bins, auto-subdivide dense ones, useMemo)
 │       ├── TimeRange.jsx     # Earliest–latest source date span
 │       ├── SettingsDialog.jsx # Refresh interval, on/off, API keys
 │       └── LogsDialog.jsx    # Scrollable activity log from DB
@@ -83,8 +85,8 @@ API keys can also be set via the Settings dialog in the UI (stored in SQLite, ov
 ## API Endpoints
 
 - `GET /api/events` — read active events from DB (instant, no pipeline)
-- `POST /api/events/refresh` — trigger immediate update cycle
-- `POST /api/events/rebuild` — clear DB and do fresh 3-day collection
+- `POST /api/events/refresh` — trigger immediate update cycle (60s cooldown, returns 429 if too frequent)
+- `POST /api/events/rebuild` — clear DB and do fresh 3-day collection (shares 60s cooldown with refresh)
 - `GET /api/settings` — get settings (keys masked)
 - `PUT /api/settings` — save settings, notify scheduler
 - `GET /api/logs` — get activity logs (last 200 entries)
@@ -92,12 +94,12 @@ API keys can also be set via the Settings dialog in the UI (stored in SQLite, ov
 ## Key Conventions
 
 - **Language:** All user-facing text (prompts, event names, descriptions) is in Polish
-- **Adding RSS feeds:** Add a tuple `(url, name)` to `EXTRA_RSS_FEEDS` in `updater.py`
+- **Adding RSS feeds:** Add a tuple `(url, name)` to `EXTRA_RSS_FEEDS` in `config.py`
 - **Adding a new collector:** Create a class with `name: str` and `async def collect(self) -> list[RawItem]`, add to collectors list in `updater.py`
 - **um.warszawa.pl scraper:** Most fragile component — if HTML structure changes, update selectors
 - **Date filtering:** 24h lookback normally, 72h on first run (empty DB). Google News uses per-day queries to bypass 100-result limit.
-- **Merge logic:** Hybrid — URL overlap pre-matching + Claude merge prompt. Only dense bins in activity chart are subdivided (variable-width).
-- **Claude model:** `claude-sonnet-4-20250514` in `grouper.py` and `updater.py`
+- **Merge logic:** Hybrid — URL overlap pre-matching + Claude merge prompt. Merge mode does NOT deactivate events omitted by Claude (prevents data loss from token limits/hallucination). Fresh mode deactivates all prior events. Claude API calls have a 120s timeout.
+- **Claude model:** `claude-sonnet-4-20250514` in `config.py` (shared constant)
 - **Frontend:** Dark glass-morphism theme, Lucide icons, auto-polls every 30s
 - **Update indicators:** "Nowy temat" badge (fades 30s) for new events, "N nowych" golden Sparkles badge for new sources (persists until next scheduler refresh)
 - **Activity chart:** Fixed 2px/hour scale across all events. 6h bins, auto-subdivide dense bins (5+ articles → 3h, 7+ → 2h, 10+ → 1h). Axis labels at 00/12h, dates on separate row.
