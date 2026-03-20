@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -22,6 +23,8 @@ from miejskie_trendy.scheduler import notify_settings_changed, run_scheduler
 logger = logging.getLogger(__name__)
 
 _scheduler_task: asyncio.Task | None = None
+_last_refresh_time: float = 0
+_REFRESH_COOLDOWN_SECONDS = 60
 
 
 @asynccontextmanager
@@ -111,9 +114,21 @@ async def get_events():
 @app.post("/api/events/refresh")
 async def refresh_events():
     """Trigger an immediate update."""
+    global _last_refresh_time
+
+    now = time.monotonic()
+    elapsed = now - _last_refresh_time
+    if elapsed < _REFRESH_COOLDOWN_SECONDS:
+        remaining = int(_REFRESH_COOLDOWN_SECONDS - elapsed)
+        return JSONResponse(
+            status_code=429,
+            content={"error": f"Odczekaj {remaining}s przed kolejnym odświeżeniem"},
+        )
+
     from miejskie_trendy.updater import update
 
     try:
+        _last_refresh_time = now
         count = await update()
         events = get_active_events()
         last_update = get_last_update_time()
@@ -132,9 +147,21 @@ async def refresh_events():
 @app.post("/api/events/rebuild")
 async def rebuild_events():
     """Clear DB and do a fresh 3-day collection."""
+    global _last_refresh_time
+
+    now = time.monotonic()
+    elapsed = now - _last_refresh_time
+    if elapsed < _REFRESH_COOLDOWN_SECONDS:
+        remaining = int(_REFRESH_COOLDOWN_SECONDS - elapsed)
+        return JSONResponse(
+            status_code=429,
+            content={"error": f"Odczekaj {remaining}s przed kolejnym odświeżeniem"},
+        )
+
     from miejskie_trendy.updater import update
 
     try:
+        _last_refresh_time = now
         reset_db()
         count = await update()
         events = get_active_events()
@@ -167,15 +194,19 @@ async def api_get_logs():
     return get_logs(200)
 
 
+_API_KEY_FIELDS = {"anthropic_api_key", "wykop_key", "wykop_secret"}
+
+
 @app.put("/api/settings")
 async def api_save_settings(body: dict):
-    # Don't save masked values
+    # Don't save masked values; don't allow clearing API keys via empty string
     to_save = {}
     for key, value in body.items():
-        if value and not value.startswith("***"):
-            to_save[key] = value
-        elif not value:
-            to_save[key] = ""
+        if isinstance(value, str) and value.startswith("***"):
+            continue  # masked — no change
+        if key in _API_KEY_FIELDS and not value:
+            continue  # don't clear API keys via empty string
+        to_save[key] = value if value else ""
     save_settings(to_save)
     _apply_key_settings()
     notify_settings_changed()

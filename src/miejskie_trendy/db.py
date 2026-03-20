@@ -76,41 +76,43 @@ def init_db() -> None:
 
 
 def get_active_events() -> list[dict]:
-    """Read all active events with their sources."""
+    """Read all active events with their sources (single JOIN query)."""
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT * FROM events WHERE is_active = 1 ORDER BY last_updated_at DESC"
+            """SELECT e.*, s.title AS src_title, s.url AS src_url, s.published_at AS src_published_at
+            FROM events e
+            LEFT JOIN sources s ON s.event_id = e.id
+            WHERE e.is_active = 1
+            ORDER BY e.last_updated_at DESC, s.published_at DESC"""
         ).fetchall()
 
-        events = []
+        events_map: dict[str, dict] = {}
+        events_order: list[str] = []
         for row in rows:
-            sources = conn.execute(
-                "SELECT title, url, published_at FROM sources WHERE event_id = ? "
-                "ORDER BY published_at DESC NULLS LAST",
-                (row["id"],),
-            ).fetchall()
+            eid = row["id"]
+            if eid not in events_map:
+                events_order.append(eid)
+                events_map[eid] = {
+                    "id": eid,
+                    "name": row["name"],
+                    "description": row["description"],
+                    "category": row["category"],
+                    "location": row["location"],
+                    "relevance": row["relevance"],
+                    "confidence": row["confidence"],
+                    "first_seen_at": row["first_seen_at"],
+                    "last_updated_at": row["last_updated_at"],
+                    "sources": [],
+                }
+            if row["src_url"]:
+                events_map[eid]["sources"].append({
+                    "title": row["src_title"],
+                    "url": row["src_url"],
+                    "published_at": row["src_published_at"],
+                })
 
-            events.append({
-                "id": row["id"],
-                "name": row["name"],
-                "description": row["description"],
-                "category": row["category"],
-                "location": row["location"],
-                "relevance": row["relevance"],
-                "confidence": row["confidence"],
-                "first_seen_at": row["first_seen_at"],
-                "last_updated_at": row["last_updated_at"],
-                "sources": [
-                    {
-                        "title": s["title"],
-                        "url": s["url"],
-                        "published_at": s["published_at"],
-                    }
-                    for s in sources
-                ],
-            })
-        return events
+        return [events_map[eid] for eid in events_order]
     finally:
         conn.close()
 
@@ -120,26 +122,30 @@ def get_active_events_summary() -> list[dict]:
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT id, name, description, category, location FROM events WHERE is_active = 1"
+            """SELECT e.id, e.name, e.description, e.category, e.location, s.url AS src_url
+            FROM events e
+            LEFT JOIN sources s ON s.event_id = e.id
+            WHERE e.is_active = 1"""
         ).fetchall()
 
-        result = []
+        events_map: dict[str, dict] = {}
+        events_order: list[str] = []
         for row in rows:
-            source_urls = [
-                r["url"]
-                for r in conn.execute(
-                    "SELECT url FROM sources WHERE event_id = ?", (row["id"],)
-                ).fetchall()
-            ]
-            result.append({
-                "id": row["id"],
-                "name": row["name"],
-                "description": row["description"],
-                "category": row["category"],
-                "location": row["location"],
-                "source_urls": source_urls,
-            })
-        return result
+            eid = row["id"]
+            if eid not in events_map:
+                events_order.append(eid)
+                events_map[eid] = {
+                    "id": eid,
+                    "name": row["name"],
+                    "description": row["description"],
+                    "category": row["category"],
+                    "location": row["location"],
+                    "source_urls": [],
+                }
+            if row["src_url"]:
+                events_map[eid]["source_urls"].append(row["src_url"])
+
+        return [events_map[eid] for eid in events_order]
     finally:
         conn.close()
 

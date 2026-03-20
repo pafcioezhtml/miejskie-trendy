@@ -62,8 +62,13 @@ class GoogleNewsCollector:
         self, session: aiohttp.ClientSession, url: str
     ) -> list[RawItem]:
         async with session.get(
-            url, headers={"User-Agent": "MiejskieTrendy/0.1"}
+            url,
+            headers={"User-Agent": "MiejskieTrendy/0.1"},
+            timeout=aiohttp.ClientTimeout(total=15),
         ) as resp:
+            if resp.status != 200:
+                logger.warning("Google News returned HTTP %d for %s", resp.status, url)
+                return []
             text = await resp.text()
 
         feed = feedparser.parse(text)

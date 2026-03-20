@@ -21,7 +21,11 @@ class TVNWarszawaCollector:
             async with session.get(
                 RSS_URL,
                 headers={"User-Agent": "MiejskieTrendy/0.1"},
+                timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
+                if resp.status != 200:
+                    logger.warning("TVN Warszawa RSS returned HTTP %d", resp.status)
+                    return []
                 text = await resp.text()
 
         feed = feedparser.parse(text)

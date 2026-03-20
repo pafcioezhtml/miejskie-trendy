@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -24,7 +24,11 @@ class UMWarszawaCollector:
             async with session.get(
                 PAGE_URL,
                 headers={"User-Agent": "MiejskieTrendy/0.1"},
+                timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
+                if resp.status != 200:
+                    logger.warning("um.warszawa.pl returned HTTP %d", resp.status)
+                    return []
                 html = await resp.text()
 
         soup = BeautifulSoup(html, "lxml")
@@ -81,7 +85,7 @@ class UMWarszawaCollector:
         date_match = DATE_RE.search(text)
         if date_match:
             try:
-                published_at = datetime.strptime(date_match.group(), "%d.%m.%Y")
+                published_at = datetime.strptime(date_match.group(), "%d.%m.%Y").replace(tzinfo=timezone.utc)
             except ValueError:
                 pass
 
